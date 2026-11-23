@@ -360,3 +360,42 @@ describe('7. 은행 거래내역·카드사 명세서 + 대사', () => {
     expect(rec.rowCount - 1).toBe(13); // 계좌 10 + 카드 중복 3(1건은 풀었음)
   });
 });
+
+describe('8. PDF 명세서', () => {
+  const PDF = '08_은행_거래내역_PDF_2026-1기(가상).pdf';
+
+  it('글자 있는 PDF는 좌표로 표를 만들어 엑셀과 같은 흐름(열 연결 확인 → 대사)을 탄다', async () => {
+    const first = (await upload(PDF)).json();
+    const guess = first.needsMapping;
+    expect(guess).toMatchObject({ kind: 'BANK', mapping: { date: '거래일자', counterparty: '내용', out: '출금(원)', in: '입금(원)', memo: '적요' } });
+    expect(guess.samples[0]).toEqual(['2026.01.15', '자동이체', '소상공인정책자금 이자', '84,000', '', '5,916,000']);
+
+    const r = (await upload(PDF, undefined, filingId, { kind: 'BANK', label: '테스트 PDF 은행', mapping: guess.mapping })).json();
+    // 14줄 중 입금 1줄 제외, 쪽 번호·반복 열 이름 줄은 오류 없이 건너뜀
+    expect(r).toMatchObject({ added: 13, skippedDeposits: 1, matched: 3, errors: [] });
+    const list = (await txns()).filter((t) => t.kind === 'BANK_OUT');
+    expect(list.filter((t) => t.counterparty.includes('이자')).every((t) => t.rule.reasonCode === 'NOT_VAT')).toBe(true);
+    expect(list.find((t) => t.counterparty.includes('화재보험료')).rule.reasonCode).toBe('NOT_VAT');
+    expect(list.filter((t) => t.counterparty.includes('기장료')).every((t) => t.rule.reasonCode === 'NO_EVIDENCE')).toBe(true);
+  });
+
+  it('스캔 이미지 PDF는 이유와 함께 거절한다(아무것도 저장 안 함)', async () => {
+    const before = (await txns()).length;
+    const r = (await upload('09_스캔본_명세서(가상).pdf')).json();
+    expect(r.added).toBe(0);
+    expect(r.errors[0].message).toContain('스캔');
+    expect(await txns()).toHaveLength(before);
+  });
+});
+
+describe('9. 고객 요청 진행 상태', () => {
+  it('요청함·답 받음을 서버에 남기고 감사이력에 기록한다', async () => {
+    const ids = (await txns()).filter((t) => t.kind === 'BANK_OUT' && t.rule?.reasonCode === 'NO_EVIDENCE').map((t) => t.id).slice(0, 2);
+    const r = await gql(`mutation($f:Int!,$ids:[Int!]!,$s:String!){ setRequestStatus(filingId:$f, txnIds:$ids, status:$s){ applied } }`, { f: filingId, ids, s: 'sent' });
+    expect(r.data.setRequestStatus.applied).toBe(2);
+    const t = (await gql(`query($f:Int!){ txns(filingId:$f){ id clientRequest } }`, { f: filingId })).data.txns.find((x: any) => x.id === ids[0]);
+    expect(t.clientRequest).toMatchObject({ status: 'sent', by: 'kim' });
+    const bad = await gql(`mutation($f:Int!,$ids:[Int!]!,$s:String!){ setRequestStatus(filingId:$f, txnIds:$ids, status:$s){ applied } }`, { f: filingId, ids, s: 'done' });
+    expect(bad.errors?.[0].extensions.code).toBe('BAD_REQUEST');
+  });
+});

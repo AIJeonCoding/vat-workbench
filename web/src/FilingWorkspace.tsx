@@ -181,7 +181,7 @@ export function FilingWorkspace({ filingId, user }: { filingId: number; user: Us
         <LayoutContent padding={4} label="거래 검토">
           {page === 'return' && <ReturnForm txns={all} pendingCount={summary.data?.totals.pending ?? 0} />}
           {page === 'requests' && (
-            <ClientRequests filingId={filingId} clientName={filing.data?.client.name ?? ''} period={filing.data?.period ?? ''} txns={all} onOpen={(id) => setOpenId(id)} />
+            <ClientRequests filingId={filingId} clientName={filing.data?.client.name ?? ''} period={filing.data?.period ?? ''} txns={all} onOpen={(id) => setOpenId(id)} onChanged={refresh} />
           )}
           <div hidden={page !== 'review'}>
           <VStack gap={4}>

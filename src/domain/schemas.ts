@@ -53,3 +53,9 @@ export const proposalSchema = z.object({
   confidence: z.coerce.number().min(0).max(1),
 });
 export type Proposal = z.infer<typeof proposalSchema>;
+
+export const requestStatusSchema = z.object({
+  filingId: z.number().int().positive(),
+  txnIds: z.array(z.number().int().positive()).min(1).max(500),
+  status: z.enum(['todo', 'sent', 'answered']),
+});

@@ -94,6 +94,7 @@ export function applyRules(
 }
 
 const PUBLIC_DUES = ['국민연금', '건강보험', '고용보험', '산재보험', '국세', '지방세', '부가세', '부가가치세', '종합소득세', '원천세', '4대보험', '과태료', '자동차세'];
+const FINANCE = ['이자', '대출원금', '보험료', '수수료(은행)'];
 const PAYROLL = ['급여', '월급', '상여', '알바', '인건비', '아르바이트'];
 const OWNER = ['생활비', '본인', '대표자', '가족'];
 
@@ -105,6 +106,9 @@ export function classifyBankOut(t: Pick<Txn, 'counterparty' | 'memo'>): { status
   const text = `${t.counterparty} ${t.memo ?? ''}`;
   if (PUBLIC_DUES.some((k) => text.includes(k))) {
     return { status: 'RULED', rule: j('NON_DEDUCT', 'NOT_VAT', '세금·사회보험료는 부가세가 붙지 않는 지출이라 매입세액 공제와 관계없습니다(종합소득세 경비 여부는 별도).') };
+  }
+  if (FINANCE.some((k) => text.includes(k))) {
+    return { status: 'RULED', rule: j('NON_DEDUCT', 'NOT_VAT', '이자·보험료는 부가세가 면세되는 금융용역이라 공제할 매입세액이 없습니다(종합소득세 경비 여부는 별도).') };
   }
   if (PAYROLL.some((k) => text.includes(k))) {
     return { status: 'RULED', rule: j('NON_DEDUCT', 'NOT_VAT', '인건비는 부가세 대상이 아닙니다. 종합소득세 경비로 쓰려면 원천세 신고 여부를 확인하세요.') };

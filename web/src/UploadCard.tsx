@@ -52,7 +52,7 @@ export function UploadCard({ filingId, files, onDone }: { filingId: number; file
     if (r.skippedDeposits) parts.push(`입금 ${r.skippedDeposits}건은 비용 검토에서 제외`);
     if (r.skippedCancels) parts.push(`취소 ${r.skippedCancels}건 제외`);
     if (r.matched) parts.push(`다른 자료와 맞춰 정리 ${r.matched}건`);
-    if (r.errors.length) parts.push(`확인할 줄 ${r.errors.length}개`);
+    if (r.errors.length) parts.push(r.kind === 'UNKNOWN' && !r.added ? '읽지 못함' : `확인할 줄 ${r.errors.length}개`);
     return parts.join(' · ');
   };
 
@@ -64,7 +64,7 @@ export function UploadCard({ filingId, files, onDone }: { filingId: number; file
         <HStack hAlign="between" vAlign="center" wrap="wrap" gap={2}>
           <VStack gap={0.5}>
             <Text weight="semibold">고객 자료</Text>
-            <Text type="supporting">홈택스 카드·세금계산서, 은행 거래내역, 카드사 이용내역(xlsx·csv)을 그대로 올리세요. 종류는 자동으로 알아냅니다.</Text>
+            <Text type="supporting">홈택스 카드·세금계산서, 은행 거래내역, 카드사 이용내역(엑셀·CSV·PDF)을 그대로 올리세요. 종류는 자동으로 알아냅니다.</Text>
           </VStack>
           {files.length > 0 && (
             <span className="wb-sub">받은 자료: {files.map((f) => `${KIND_LABEL[f.kind] ?? f.kind} ${f.rowCount}건`).join(' · ')}</span>
@@ -75,8 +75,8 @@ export function UploadCard({ filingId, files, onDone }: { filingId: number; file
           isLabelHidden
           mode="dropzone"
           isMultiple
-          accept=".xlsx,.csv"
-          placeholder="여기에 파일을 끌어다 놓거나 눌러서 고르세요 (xlsx, csv · 여러 개 가능)"
+          accept=".xlsx,.csv,.pdf"
+          placeholder="여기에 파일을 끌어다 놓거나 눌러서 고르세요 (xlsx, csv, pdf · 여러 개 가능)"
           value={picked}
           isLoading={busy}
           onChange={(v) => setPicked((v as File[] | null) ?? [])}
@@ -112,7 +112,7 @@ export function UploadCard({ filingId, files, onDone }: { filingId: number; file
                 <VStack gap={1}>
                   {r.errors.map((e) => (
                     <Text key={e.row} type="supporting">
-                      {e.row}행: {e.message}
+                      {e.row ? `${e.row}행: ` : ''}{e.message}
                     </Text>
                   ))}
                 </VStack>

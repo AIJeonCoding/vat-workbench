@@ -164,6 +164,22 @@ export class ReviewService {
     return f;
   }
 
+  /** 고객 요청 진행 상태(요청 전·요청함·답 받음). 여러 건을 한 번에 바꾼다. */
+  async setRequestStatus(actor: Actor, filingId: number, txnIds: number[], status: 'todo' | 'sent' | 'answered') {
+    requireHuman(actor);
+    const em = this.em.fork();
+    const list = await em.find(Txn, { id: { $in: txnIds }, filingId });
+    const at = new Date().toISOString();
+    for (const t of list) {
+      const before = t.clientRequest ?? null;
+      t.clientRequest = { status, by: actor.userId, at };
+      audit(em, actor, 'txn', t.id, `REQUEST_${status.toUpperCase()}`, before, t.clientRequest);
+    }
+    await em.flush();
+    for (const t of list) this.events.emit({ type: 'txn', filingId, txnId: t.id });
+    return { updated: list.length };
+  }
+
   /**
    * 대사 풀기: 자동으로 묶인 두 거래가 실제로는 다른 거래일 때. 다시 규칙 판정을 받고, 이후 자동으로 다시 묶지 않는다.
    */

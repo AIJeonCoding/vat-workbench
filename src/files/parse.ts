@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
 import type { FileKind } from '../domain/entities';
+import { isPdf, readPdfTable } from './pdf';
 
 export interface ParsedRow {
   externalKey: string;
@@ -191,8 +192,9 @@ function parseCsv(text: string): string[][] {
     });
 }
 
-/** 파일 바이트 → 표. xlsx는 첫 시트, 나머지는 CSV(UTF-8)로 본다. */
+/** 파일 바이트 → 표. PDF는 글자 좌표로 표를 만들고, xlsx는 첫 시트, 나머지는 CSV(UTF-8)로 본다. */
 export async function readTable(filename: string, buf: Buffer): Promise<unknown[][]> {
+  if (isPdf(buf)) return (await readPdfTable(buf)).table;
   const isXlsx = filename.toLowerCase().endsWith('.xlsx') || buf.subarray(0, 2).toString() === 'PK';
   if (!isXlsx) return parseCsv(buf.toString('utf8'));
   const wb = new ExcelJS.Workbook();

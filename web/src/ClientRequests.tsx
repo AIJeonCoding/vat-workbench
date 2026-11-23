@@ -1,7 +1,7 @@
 import { Button } from '@astryxdesign/core/Button';
 import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl';
-import { useEffect, useMemo, useState } from 'react';
-import type { Txn } from './api';
+import { useMemo, useState } from 'react';
+import { gql, type Txn } from './api';
 import { current, KIND_LABEL, num } from './format';
 
 /**
@@ -41,31 +41,23 @@ export function requestItems(txns: Txn[]): RequestItem[] {
   return out.sort((a, b) => a.txn.date.localeCompare(b.txn.date));
 }
 
-const storeKey = (filingId: number) => `wb-requests-${filingId}`;
-
-export function ClientRequests({ filingId, clientName, period, txns, onOpen }: { filingId: number; clientName: string; period: string; txns: Txn[]; onOpen: (id: number) => void }) {
+export function ClientRequests({ filingId, clientName, period, txns, onOpen, onChanged }: { filingId: number; clientName: string; period: string; txns: Txn[]; onOpen: (id: number) => void; onChanged: () => void }) {
   const items = useMemo(() => requestItems(txns), [txns]);
-  const [status, setStatus] = useState<Record<number, ReqStatus>>({});
   const [filter, setFilter] = useState<'all' | 'evidence' | 'purpose'>('all');
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
+  // 진행 상태는 서버에 저장(다른 담당자 화면에도 실시간 반영)
+  const status: Record<number, ReqStatus> = Object.fromEntries(items.map((i) => [i.txn.id, i.txn.clientRequest?.status ?? 'todo']));
+  const [err, setErr] = useState<string | null>(null);
+  const update = async (ids: number[], s: ReqStatus) => {
     try {
-      setStatus(JSON.parse(localStorage.getItem(storeKey(filingId)) ?? '{}'));
-    } catch {
-      setStatus({});
+      setErr(null);
+      await gql(`mutation($f:Int!,$ids:[Int!]!,$s:String!){ setRequestStatus(filingId:$f, txnIds:$ids, status:$s){ applied } }`, { f: filingId, ids, s });
+    } catch (e) {
+      setErr((e as Error).message);
     }
-  }, [filingId]);
-  const update = (id: number, s: ReqStatus) =>
-    setStatus((m) => {
-      const next = { ...m, [id]: s };
-      try {
-        localStorage.setItem(storeKey(filingId), JSON.stringify(next));
-      } catch {
-        /* 저장 못 해도 화면은 동작 */
-      }
-      return next;
-    });
+    onChanged();
+  };
 
   const shown = items.filter((i) => filter === 'all' || i.type === filter);
   const unsent = shown.filter((i) => (status[i.txn.id] ?? 'todo') === 'todo');
@@ -125,12 +117,13 @@ export function ClientRequests({ filingId, clientName, period, txns, onOpen }: {
                     </button>
                     <div className="wb-sub">
                       {KIND_LABEL[i.txn.kind]} · {i.type === 'evidence' ? '증빙 요청' : '용도 확인'}
+                      {i.txn.clientRequest && i.txn.clientRequest.status !== 'todo' ? ` · ${i.txn.clientRequest.by} ${i.txn.clientRequest.at.slice(5, 10)}` : ''}
                     </div>
                   </td>
                   <td className="wb-num">{num(i.txn.supplyAmount + (i.txn.kind === 'BANK_OUT' ? 0 : i.txn.vat))}</td>
                   <td>{i.question}</td>
                   <td>
-                    <select className="wb-select" value={s} onChange={(e) => update(i.txn.id, e.target.value as ReqStatus)} aria-label="진행 상태">
+                    <select className="wb-select" value={s} onChange={(e) => void update([i.txn.id], e.target.value as ReqStatus)} aria-label="진행 상태">
                       <option value="todo">요청 전</option>
                       <option value="sent">요청함</option>
                       <option value="answered">답 받음</option>
@@ -144,6 +137,7 @@ export function ClientRequests({ filingId, clientName, period, txns, onOpen }: {
       </div>
 
       <div className="wb-return-side">
+        {err && <div className="wb-nonded">{err}</div>}
         <div className="wb-block-title">보낼 메시지 ({unsent.length ? `요청 전 ${unsent.length}건` : `전체 ${shown.length}건`})</div>
         <textarea className="wb-message" readOnly value={message} rows={16} />
         <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
@@ -166,7 +160,7 @@ export function ClientRequests({ filingId, clientName, period, txns, onOpen }: {
             label="보낸 것으로 표시"
             isDisabled={!unsent.length}
             clickAction={async () => {
-              for (const i of unsent) update(i.txn.id, 'sent');
+              await update(unsent.map((i) => i.txn.id), 'sent');
             }}
           />
         </div>

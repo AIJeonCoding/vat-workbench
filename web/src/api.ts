@@ -103,6 +103,7 @@ export interface Txn {
   vatEstimated: boolean;
   matchType?: 'SAME_AS_HOMETAX_CARD' | 'CARD_PAYMENT' | 'INVOICE_PAID' | 'UNMATCHED' | null;
   linkedTxnId?: number | null;
+  clientRequest?: { status: 'todo' | 'sent' | 'answered'; by: string; at: string } | null;
   sourceFileId: number;
   version: number;
 }
@@ -187,4 +188,4 @@ export interface MappingInput {
   mapping: Record<string, string>;
 }
 
-export const TXN_FIELDS = 'id kind date counterparty counterpartyBrn counterpartyTaxType industry supplyAmount vat status rule ai final hint memo sourceRow vatEstimated matchType linkedTxnId sourceFileId version';
+export const TXN_FIELDS = 'id kind date counterparty counterpartyBrn counterpartyTaxType industry supplyAmount vat status rule ai final hint memo sourceRow vatEstimated matchType linkedTxnId clientRequest sourceFileId version';

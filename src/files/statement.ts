@@ -177,6 +177,8 @@ export function parseStatement(table: unknown[][], headerIdx: number, kind: Stat
     if (kind === 'BANK') {
       const out = toAmount(get('out'));
       const inn = toAmount(get('in'));
+      // 페이지 번호·안내 문구처럼 날짜도 금액도 없는 줄은 거래가 아니다
+      if (!date && !out && !inn) continue;
       const problems: string[] = [];
       if (!date) problems.push('날짜 형식이 맞지 않습니다');
       if (out === null) problems.push('출금액이 숫자가 아닙니다');
@@ -208,6 +210,7 @@ export function parseStatement(table: unknown[][], headerIdx: number, kind: Stat
 
     const amount = toAmount(get('amount'));
     const merchant = text('merchant');
+    if (!date && !amount) continue;
     const problems: string[] = [];
     if (!date) problems.push('날짜 형식이 맞지 않습니다');
     if (amount === null) problems.push('이용금액이 숫자가 아닙니다');

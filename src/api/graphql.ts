@@ -7,7 +7,7 @@ import { actorFromHeaders } from '../common/actor';
 import { EventBus } from '../common/events';
 import { AgentQueue } from '../agent/agent.queue';
 import { Client, DONE_STATUSES, Filing, Txn } from '../domain/entities';
-import { bulkConfirmInputSchema, confirmInputSchema, type Actor } from '../domain/schemas';
+import { bulkConfirmInputSchema, confirmInputSchema, requestStatusSchema, type Actor } from '../domain/schemas';
 import { REASON_LABEL } from '../rules/law';
 import { ReviewService } from '../review/review.service';
 
@@ -64,6 +64,7 @@ export const schema = /* GraphQL */ `
     vatEstimated: Boolean!
     matchType: String
     linkedTxnId: Int
+    clientRequest: JSON
     sourceFileId: Int!
     version: Int!
   }
@@ -122,6 +123,7 @@ export const schema = /* GraphQL */ `
     applyToSameCounterparty(txnId: Int!): ApplyResult!
     markReady(filingId: Int!): FilingCard!
     unmatch(txnId: Int!): Txn!
+    setRequestStatus(filingId: Int!, txnIds: [Int!]!, status: String!): ApplyResult!
   }
 
   type Subscription {
@@ -201,6 +203,11 @@ export async function registerGraphql(app: NestFastifyApplication) {
       applyToSameCounterparty: wrap(async (_: unknown, { txnId }: { txnId: number }, ctx: Ctx) => review.applyToSameCounterparty(ctx.actor(), txnId)),
       markReady: wrap(async (_: unknown, { filingId }: { filingId: number }, ctx: Ctx) => filingCard(await review.markReady(ctx.actor(), filingId))),
       unmatch: wrap(async (_: unknown, { txnId }: { txnId: number }, ctx: Ctx) => review.unmatch(ctx.actor(), txnId)),
+      setRequestStatus: wrap(async (_: unknown, args: unknown, ctx: Ctx) => {
+        const a = parse(requestStatusSchema, args);
+        const r = await review.setRequestStatus(ctx.actor(), a.filingId, a.txnIds, a.status);
+        return { applied: r.updated };
+      }),
     },
     Subscription: {
       filingEvents: {

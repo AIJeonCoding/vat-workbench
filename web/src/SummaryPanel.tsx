@@ -17,7 +17,7 @@ export function SummaryPanel({ filingId, summary: s, user, status, onChanged }: 
   return (
     <VStack gap={3}>
       <div>
-        <div className="wb-sub">납부할 부가세(예상)</div>
+        <div className="wb-sub">납부세액(가) 예상 · 카드발행공제·예정고지 전</div>
         <div className="wb-big">{s.payable < 0 ? `환급 ${num(-s.payable)}` : num(s.payable)}원</div>
         <div className="wb-sub">
           매입 {confirmedPurchases}/{purchaseTotal}건 확정

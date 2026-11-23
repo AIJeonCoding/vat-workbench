@@ -225,6 +225,10 @@ export class Txn {
   @Property({ type: 'string', nullable: true })
   matchType?: MatchType | null;
 
+  /** 고객에게 증빙·용도를 물어본 진행 상태 */
+  @Property({ type: 'json', nullable: true })
+  clientRequest?: { status: 'todo' | 'sent' | 'answered'; by: string; at: string } | null;
+
   /** 맞춰진 상대 거래 */
   @Property({ type: 'integer', nullable: true })
   linkedTxnId?: number | null;

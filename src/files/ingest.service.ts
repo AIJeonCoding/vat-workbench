@@ -9,6 +9,7 @@ import { applyRules } from '../rules/rules';
 import { AgentQueue } from '../agent/agent.queue';
 import { KIND_LABEL, parseTable, readTable, type ParseError, type ParsedRow } from './parse';
 import { reconcile } from './reconcile';
+import { ScannedPdfError } from './pdf';
 import {
   findHeaderRow,
   guessKind,
@@ -86,7 +87,15 @@ export class IngestService {
     if (!filing) throw new NotFoundException('신고 건이 없습니다');
     const client = await em.findOneOrFail(Client, filing.clientId);
 
-    const table = await readTable(filename, buf);
+    let table: unknown[][];
+    try {
+      table = await readTable(filename, buf);
+    } catch (e) {
+      if (e instanceof ScannedPdfError) {
+        return { filename, kind: 'UNKNOWN', kindLabel: '스캔 PDF', errors: [{ row: 0, message: e.message }], fileId: null, duplicate: false, added: 0, skippedExisting: 0 };
+      }
+      throw new BadRequestException(`파일을 읽지 못했습니다: ${(e as Error).message}`);
+    }
     const parsed = parseTable(table);
 
     if (parsed.kind === 'REVIEW_EXPORT') return this.reviewDiff(em, filingId, filename, parsed);

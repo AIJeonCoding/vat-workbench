@@ -43,6 +43,9 @@ export function ReturnForm({ txns, pendingCount }: { txns: Txn[]; pendingCount: 
     const outVat = sum(salesInv, 'vat') + sum(cardSales, 'vat');
     const inVat = sum(inv, 'vat') + sum(cardDeduct, 'vat');
     const net = inVat - sum(invNon, 'vat');
+    // 신용카드매출전표등 발행공제(부가가치세법 제46조): 개인사업자, 발행금액(부가세 포함)의 1.3%, 연 1천만원 한도, 납부세액 초과 불가
+    const cardSalesGross = sum(cardSales, 'supplyAmount') + sum(cardSales, 'vat');
+    const cardCredit = Math.max(0, Math.min(Math.floor(cardSalesGross * 0.013), 10_000_000, outVat - net));
     const prepaid = txns.filter((t) => t.kind === 'BANK_OUT' && /예정고지/.test(`${t.counterparty} ${t.memo ?? ''}`));
     const prepaidAmt = sum(prepaid, 'supplyAmount');
     return [
@@ -64,7 +67,15 @@ export function ReturnForm({ txns, pendingCount }: { txns: Txn[]; pendingCount: 
       { no: '16', label: '공제받지 못할 매입세액', supply: sum(invNon, 'supplyAmount'), vat: sum(invNon, 'vat'), txns: invNon, note: invNon.length ? '공제받지 못할 매입세액 명세서 함께 제출' : undefined },
       { no: '17', label: '차감계 (15 − 16)', vat: net, strong: true },
       { no: '가', label: '납부(환급)세액 (매출세액 − 매입세액)', vat: outVat - net, strong: true },
-      { no: '19', label: '신용카드매출전표등 발행공제 등', pending: true, note: '경감·공제세액 계산은 준비 중 — 홈택스 화면에서 확인' },
+      {
+        no: '19',
+        label: '신용카드매출전표등 발행공제',
+        supply: cardSalesGross,
+        vat: cardCredit,
+        rate: '1.3/100',
+        txns: cardSales,
+        note: `카드·현금영수증 매출(부가세 포함) × 1.3%, 연 1,000만원·납부세액 한도. 직전연도 공급가액 10억 이하 개인사업자라는 가정 — 고객 요건 확인 필요`,
+      },
       {
         no: '21',
         label: '예정고지세액',
@@ -72,7 +83,7 @@ export function ReturnForm({ txns, pendingCount }: { txns: Txn[]; pendingCount: 
         txns: prepaid,
         note: prepaid.length ? '계좌 출금에서 찾은 금액 — 홈택스 고지내역과 맞는지 확인' : '계좌 자료에서 예정고지 출금을 찾지 못함',
       },
-      { no: '27', label: '차가감하여 납부할 세액(환급받을 세액)', vat: outVat - net - prepaidAmt, strong: true, note: '경감·공제세액(19) 반영 전' },
+      { no: '27', label: '차가감하여 납부할 세액(환급받을 세액)', vat: outVat - net - cardCredit - prepaidAmt, strong: true, note: '(가) − (19) − (21)' },
     ];
   }, [txns]);
 
@@ -121,7 +132,7 @@ export function ReturnForm({ txns, pendingCount }: { txns: Txn[]; pendingCount: 
           </tbody>
         </table>
         <div className="wb-sub" style={{ marginTop: 8 }}>
-          데모용 단순화: 영세율·대손세액·의제매입세액·경감공제세액·가산세는 계산하지 않습니다. 고정자산 구분은 금액·품목으로 추정한 후보입니다.
+          데모용 단순화: 영세율·대손세액·의제매입세액·전자신고세액공제·가산세는 계산하지 않습니다. 고정자산 구분은 금액·품목으로 추정한 후보입니다.
         </div>
       </div>
 
