@@ -1,0 +1,228 @@
+/*
+ * 업무용 화면 톤: 밝은 바탕, 얇은 선, 작은 모서리, 색은 의미 있을 때만(불공제·확인 필요).
+ * 배지·그림자·애니메이션은 쓰지 않는다.
+ */
+:root {
+  --radius-container: 4px;
+  --radius-element: 3px;
+  --radius-inner: 2px;
+  --radius-page: 4px;
+  --font-family-body: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --font-family-heading: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --wb-line: #d9dce1;
+  --wb-line-soft: #eceef1;
+  --wb-text: #1f2329;
+  --wb-sub: #6b7280;
+  --wb-red: #b42318;
+  --wb-amber: #8a5a00;
+  --wb-sel: #eef3fb;
+  --wb-head: #f6f7f9;
+}
+
+body {
+  background: #fff;
+  color: var(--wb-text);
+  font-size: 13px;
+}
+
+/* 표 */
+.wb-num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.wb-row {
+  cursor: pointer;
+}
+
+.wb-row-selected td {
+  background: var(--wb-sel);
+}
+
+.wb-table thead th {
+  background: var(--wb-head);
+  font-weight: 600;
+  color: var(--wb-sub);
+  font-size: 12px;
+}
+
+.wb-ded {
+  color: var(--wb-text);
+}
+
+.wb-nonded {
+  color: var(--wb-red);
+  font-weight: 600;
+}
+
+.wb-sub {
+  color: var(--wb-sub);
+  font-size: 12px;
+}
+
+.wb-warn {
+  color: var(--wb-amber);
+  font-weight: 600;
+}
+
+.wb-live {
+  font-size: 12px;
+  color: var(--wb-sub);
+  font-style: italic;
+}
+
+/* 왼쪽 고객 목록 */
+.wb-filing {
+  display: block;
+  width: 100%;
+  text-align: start;
+  border: none;
+  border-bottom: 1px solid var(--wb-line-soft);
+  background: transparent;
+  padding: 10px 8px;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.wb-filing:hover {
+  background: var(--wb-head);
+}
+
+.wb-filing[aria-current='true'] {
+  background: var(--wb-sel);
+  box-shadow: inset 2px 0 0 #2f5fb3;
+}
+
+/* 단계 표시(한 줄 텍스트) */
+.wb-steps {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--wb-sub);
+}
+
+.wb-steps b {
+  color: var(--wb-text);
+}
+
+/* 요약 조서 */
+.wb-big {
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.wb-sec {
+  border-top: 1px solid var(--wb-line);
+  padding-top: 8px;
+}
+
+.wb-sec h5 {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--wb-sub);
+}
+
+.wb-sum-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.wb-sum-total {
+  border-top: 1px solid var(--wb-line-soft);
+  font-weight: 700;
+}
+
+.wb-keys {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--wb-sub);
+  align-items: center;
+}
+
+.wb-keys kbd {
+  font: inherit;
+  font-size: 11px;
+  border: 1px solid var(--wb-line);
+  border-radius: 2px;
+  padding: 0 4px;
+  background: #fff;
+}
+
+/* 드로어 안 근거 블록 */
+.wb-block {
+  border: 1px solid var(--wb-line);
+  padding: 10px 12px;
+}
+
+.wb-block-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--wb-sub);
+  margin-bottom: 4px;
+}
+
+.wb-steps-list {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+  color: var(--wb-sub);
+}
+
+.wb-steps-list li {
+  padding: 1px 0;
+}
+
+.wb-history {
+  font-size: 12px;
+  color: var(--wb-sub);
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.wb-history td {
+  padding: 3px 6px 3px 0;
+  border-bottom: 1px solid var(--wb-line-soft);
+  vertical-align: top;
+}
+
+/* 열 연결 확인 */
+.wb-map-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.wb-preview {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.wb-preview th {
+  text-align: left;
+  background: var(--wb-head);
+  color: var(--wb-sub);
+  font-weight: 600;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--wb-line);
+}
+
+.wb-preview td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--wb-line-soft);
+}
+
+.wb-matched td {
+  color: var(--wb-sub);
+}
