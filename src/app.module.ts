@@ -3,6 +3,7 @@ import { type DynamicModule, Module } from '@nestjs/common';
 import { AgentQueue, CHAT_FN } from './agent/agent.queue';
 import type { ChatFn } from './agent/llm';
 import { RestController } from './api/rest.controller';
+import { ChatService } from './chat/chat.service';
 import { EventBus } from './common/events';
 import { IngestService } from './files/ingest.service';
 import { ormConfig } from './mikro-orm.config';
@@ -23,6 +24,7 @@ export class AppModule {
         IngestService,
         ReviewService,
         ExportService,
+        ChatService,
         ...(opts.chat ? [{ provide: CHAT_FN, useValue: opts.chat }] : []),
       ],
     };
