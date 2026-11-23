@@ -15,6 +15,8 @@ import { current, isSales, KIND_LABEL, MATCH_LABEL, num, REASON_LABEL, STATUS, T
 import { SummaryPanel } from './SummaryPanel';
 import { TxnDrawer } from './TxnDrawer';
 import { UploadCard } from './UploadCard';
+import { ReturnForm } from './ReturnForm';
+import { ClientRequests, requestItems } from './ClientRequests';
 
 /** 계좌 출금은 공제·불공제가 아니라 '무엇을 할지'로 보여 준다 */
 const BANK_LABEL: Record<string, string> = { NO_EVIDENCE: '증빙 요청', NOT_VAT: '부가세 무관', NOT_BUSINESS: '개인 지출' };
@@ -32,6 +34,7 @@ const VIEW_FILTER: Record<View, (t: Txn) => boolean> = {
 
 export function FilingWorkspace({ filingId, user }: { filingId: number; user: User }) {
   const qc = useQueryClient();
+  const [page, setPage] = useState<'review' | 'return' | 'requests'>('review');
   const [view, setView] = useState<View>('todo');
   const [cursor, setCursor] = useState(0);
   const [openId, setOpenId] = useState<number | null>(null);
@@ -121,7 +124,7 @@ export function FilingWorkspace({ filingId, user }: { filingId: number; user: Us
   // 키보드: ↑↓/J K 이동, Enter 상세, A 제안대로 승인
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (openId !== null || (e.target as HTMLElement)?.closest('input,textarea,[role=combobox]')) return;
+      if (page !== 'review' || openId !== null || (e.target as HTMLElement)?.closest('input,textarea,select,[role=combobox]')) return;
       if (e.key === 'ArrowDown' || e.key === 'j') {
         setCursor((c) => Math.min(c + 1, rows.length - 1));
         e.preventDefault();
@@ -136,7 +139,7 @@ export function FilingWorkspace({ filingId, user }: { filingId: number; user: Us
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [rows, sel, openId, confirm]);
+  }, [rows, sel, openId, confirm, page]);
 
   useEffect(() => setCursor(0), [view]);
 
@@ -158,6 +161,11 @@ export function FilingWorkspace({ filingId, user }: { filingId: number; user: Us
                 </span>
               )}
             </HStack>
+            <TabList value={page} onChange={(v) => setPage(v as typeof page)} size="sm">
+              <Tab value="review" label="자료·검토" />
+              <Tab value="return" label="부가세 신고서" />
+              <Tab value="requests" label={`고객 요청 ${requestItems(all).length}`} />
+            </TabList>
             <div className="wb-steps" aria-label="신고 준비 단계">
               {['자료 받기', '자동 판정', '담당자 검토', '세무사 확인'].map((label, i) => (
                 <span key={label}>
@@ -171,6 +179,11 @@ export function FilingWorkspace({ filingId, user }: { filingId: number; user: Us
       }
       content={
         <LayoutContent padding={4} label="거래 검토">
+          {page === 'return' && <ReturnForm txns={all} pendingCount={summary.data?.totals.pending ?? 0} />}
+          {page === 'requests' && (
+            <ClientRequests filingId={filingId} clientName={filing.data?.client.name ?? ''} period={filing.data?.period ?? ''} txns={all} onOpen={(id) => setOpenId(id)} />
+          )}
+          <div hidden={page !== 'review'}>
           <VStack gap={4}>
             <UploadCard filingId={filingId} files={filing.data?.files ?? []} onDone={refresh} />
 
@@ -301,6 +314,7 @@ export function FilingWorkspace({ filingId, user }: { filingId: number; user: Us
               </VStack>
             </Card>
           </VStack>
+          </div>
           <TxnDrawer
             txn={openTxn}
             user={user}
