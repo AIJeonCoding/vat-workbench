@@ -1,0 +1,27 @@
+# Render 블루프린트: 웹(화면+API 한 서비스) + Postgres. Render 대시보드 → New → Blueprint → 이 저장소 선택.
+services:
+  - type: web
+    name: vat-workbench
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm ci && npm --prefix web ci && npm run build
+    startCommand: node dist/main.js
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: vat-workbench-db
+          property: connectionString
+      # 로컬 AI를 연결하기 전에는 off: 규칙 판정·열 이름 사전·대사·신고서는 그대로 동작
+      - key: LLM_URL
+        value: "off"
+
+databases:
+  - name: vat-workbench-db
+    plan: free
+    region: singapore
