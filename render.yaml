@@ -16,8 +16,15 @@ services:
           name: vat-workbench-db
           property: connectionString
       # 로컬 AI를 연결하기 전에는 off: 규칙 판정·열 이름 사전·대사·신고서는 그대로 동작
+      # 로컬 Qwen을 터널로 연결할 때 대시보드에서 넣는다(비우면 규칙 기반 대화만 동작)
       - key: LLM_URL
-        value: "off"
+        sync: false
+      - key: LLM_API_KEY
+        sync: false
+      - key: LLM_TIMEOUT_MS
+        value: "90000"
+      - key: LLM_HEALTH_TIMEOUT_MS
+        value: "5000"
 
 databases:
   - name: vat-workbench-db

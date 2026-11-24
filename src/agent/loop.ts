@@ -42,6 +42,8 @@ export async function runLoop<T>(opts: {
   completion: { name: string; schema: ZodTypeAny };
   maxTurns: number;
   onStep?: (s: LoopStep) => void;
+  /** 남은 턴이 이 수 이하가 되면 도구 결과 뒤에 '이제 결론을 내라'를 붙인다 */
+  wrapUpAt?: number;
 }): Promise<LoopResult<T>> {
   const messages: ChatMessage[] = [
     { role: 'system', content: opts.system },
@@ -87,7 +89,9 @@ export async function runLoop<T>(opts: {
     const step = { tool: tool.name, summary: tool.summarize(args.data, result) };
     steps.push(step);
     opts.onStep?.(step);
-    messages.push({ role: 'user', content: `[${tool.name} 결과]\n${result}` });
+    const left = opts.maxTurns - turn;
+    const nudge = opts.wrapUpAt && left <= opts.wrapUpAt ? `\n\n[남은 턴 ${left}] 더 조회하지 말고 지금까지 결과로 바로 ${opts.completion.name}를 호출하세요.` : '';
+    messages.push({ role: 'user', content: `[${tool.name} 결과]\n${result}${nudge}` });
   }
   return { steps, turns: opts.maxTurns, error: `최대 ${opts.maxTurns}턴 안에 결론을 내지 못했습니다` };
 }

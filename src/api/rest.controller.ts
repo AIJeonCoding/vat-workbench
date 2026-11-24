@@ -28,9 +28,9 @@ export class RestController {
   /** 업무 대화(조회·확정 카드 제안만, 쓰기 없음) */
   @Post('filings/:id/chat')
   async chatTurn(@Param('id', ParseIntPipe) id: number, @Body() body: unknown) {
-    const r = z.object({ message: z.string().max(2000) }).safeParse(body);
+    const r = z.object({ message: z.string().max(2000), mode: z.enum(['auto', 'quick']).optional() }).safeParse(body);
     if (!r.success) throw new BadRequestException('message가 필요합니다');
-    return this.chat.answer(id, r.data.message);
+    return this.chat.answer(id, r.data.message, r.data.mode);
   }
 
   @Get('health')

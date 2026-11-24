@@ -79,6 +79,17 @@ export class AgentQueue {
     return this.cfg.model;
   }
 
+  /** 대화 자율 루프용 LLM 호출 함수 */
+  get chatFn() {
+    return this.chat;
+  }
+
+  /** AI를 지금 쓸 수 있는지(꺼짐·연결 실패면 false) */
+  async available(): Promise<boolean> {
+    if (this.cfg.baseUrl === 'off') return false;
+    return process.env.LLM_SKIP_HEALTH === '1' || llmHealthy(this.cfg);
+  }
+
   /** 한 번 묻고 답만 받는 호출(파일 열 연결 추측 등). AI가 꺼져 있거나 실패하면 null — 호출한 쪽은 사전 추측만 쓴다. */
   async ask(prompt: string, system = '당신은 세무사 사무실의 자료 정리 보조입니다. 요청한 형식으로만 답합니다.'): Promise<string | null> {
     if (this.cfg.baseUrl === 'off') return null;

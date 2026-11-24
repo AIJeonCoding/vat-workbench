@@ -26,8 +26,10 @@ export interface ActionCard {
 
 export interface ChatReply {
   reply: string;
+  /** 자율 루프로 답했을 때 거친 단계 */
+  steps?: { tool: string; summary: string }[];
   /** 어떤 경로로 답했는지(화면 표시·테스트용) */
-  route: 'intro' | 'blocked' | 'off_topic' | 'summary' | 'pending' | 'evidence' | 'search' | 'law' | 'action' | 'llm' | 'fallback';
+  route: 'intro' | 'blocked' | 'loop' | 'off_topic' | 'summary' | 'pending' | 'evidence' | 'search' | 'law' | 'action' | 'llm' | 'fallback';
   rows?: { id: number; date: string; counterparty: string; amount: number; status: string; judgement: string }[];
   action?: ActionCard;
   suggestions?: string[];
@@ -59,7 +61,7 @@ const INJECTION = [
   /jailbreak|DAN\b|developer mode/i,
 ];
 
-const DOMAIN = /부가세|부가가치세|공제|불공제|매입|매출|세액|세금|신고|확정|미확정|검토|거래|가맹점|거래처|카드|은행|계좌|출금|입금|세금계산서|영수증|증빙|접대|차량|주유|승용|경차|화물|간이|면세|사업|비용|경비|요약|납부|환급|고객|요청|메시지|조문|법|근거|판정|제안|AI|규칙|금액|합계|얼마|몇\s*건|대사|중복|예정고지|발행공제|신고서|홈택스|사장님|건\b/;
+const DOMAIN = /부가세|부가가치세|공제|불공제|매입|매출|세액|세금|신고|확정|미확정|검토|거래|가맹점|거래처|카드|은행|계좌|출금|입금|세금계산서|영수증|증빙|접대|차량|주유|승용|경차|화물|간이|면세|사업|비용|경비|요약|납부|환급|고객|요청|메시지|조문|법|근거|판정|제안|AI|규칙|금액|합계|얼마|몇\s*건|대사|중복|예정고지|발행공제|신고서|홈택스|사장님|확인\s*필요|남은|정리|건(을|이|은|들|만|\s|$)/;
 
 export type GuardResult = { ok: true } | { ok: false; route: 'blocked' | 'off_topic'; reply: string };
 
@@ -78,13 +80,13 @@ export function guard(message: string, counterparties: string[]): GuardResult {
 }
 
 // ── 의도 처리 ────────────────────────────────────────────────────────
-const judgeLabel = (t: Txn) => {
+export const judgeLabel = (t: Txn) => {
   const j = effective(t);
   if (t.status === 'MATCHED') return '중복·대금 정리';
   if (!j) return '판정 없음';
   return `${j.decision === 'DEDUCT' ? '공제' : '불공제'} · ${REASON_LABEL[j.reasonCode] ?? j.reasonCode}`;
 };
-const row = (t: Txn) => ({
+export const row = (t: Txn) => ({
   id: t.id,
   date: t.date,
   counterparty: t.counterparty,
@@ -92,7 +94,7 @@ const row = (t: Txn) => ({
   status: t.status,
   judgement: judgeLabel(t),
 });
-const STATUS_KO: Record<string, string> = { CONFIRMED: '확정', MATCHED: '정리됨', NEEDS_REVIEW: '확인 필요', SUGGESTED: 'AI 제안', RULED: '규칙 판정' };
+export const STATUS_KO: Record<string, string> = { CONFIRMED: '확정', MATCHED: '정리됨', NEEDS_REVIEW: '확인 필요', SUGGESTED: 'AI 제안', RULED: '규칙 판정' };
 
 const REASON_WORDS: [RegExp, string[]][] = [
   [/접대|거래처\s*식사|선물/, ['ENTERTAINMENT']],
@@ -103,9 +105,9 @@ const REASON_WORDS: [RegExp, string[]][] = [
   [/개인|사업\s*무관/, ['NOT_BUSINESS']],
 ];
 
-const isOpen = (t: Txn) => !DONE_STATUSES.includes(t.status);
+export const isOpen = (t: Txn) => !DONE_STATUSES.includes(t.status);
 
-function findCounterparty(message: string, txns: Txn[]): Txn[] {
+export function findCounterparty(message: string, txns: Txn[]): Txn[] {
   const names = [...new Set(txns.map((t) => t.counterparty))];
   const hit = names.filter((n) => {
     const core = n.replace(/\(.*?\)|주식회사|㈜|\s/g, '');

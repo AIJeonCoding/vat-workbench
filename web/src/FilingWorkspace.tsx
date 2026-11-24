@@ -17,6 +17,7 @@ import { TxnDrawer } from './TxnDrawer';
 import { UploadCard } from './UploadCard';
 import { ReturnForm } from './ReturnForm';
 import { ClientRequests, requestItems } from './ClientRequests';
+import { ChatPanel } from './ChatPanel';
 
 /** 계좌 출금은 공제·불공제가 아니라 '무엇을 할지'로 보여 준다 */
 const BANK_LABEL: Record<string, string> = { NO_EVIDENCE: '증빙 요청', NOT_VAT: '부가세 무관', NOT_BUSINESS: '개인 지출' };
@@ -38,6 +39,7 @@ export function FilingWorkspace({ filingId, user }: { filingId: number; user: Us
   const [view, setView] = useState<View>('todo');
   const [cursor, setCursor] = useState(0);
   const [openId, setOpenId] = useState<number | null>(null);
+  const [side, setSide] = useState<'chat' | 'summary'>('chat');
   const [live, setLive] = useState<Record<number, string>>({});
   const [notice, setNotice] = useState<{ status: 'info' | 'warning' | 'error' | 'success'; title: string } | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
@@ -347,8 +349,19 @@ export function FilingWorkspace({ filingId, user }: { filingId: number; user: Us
         </LayoutContent>
       }
       end={
-        <LayoutPanel width={360} hasDivider padding={4} label="신고서 요약">
-          <SummaryPanel filingId={filingId} summary={summary.data} user={user} status={filing.data?.status} onChanged={refresh} />
+        <LayoutPanel width={420} hasDivider padding={4} label="대화 · 요약">
+          <div className="wb-side-tabs">
+            <button className={side === 'chat' ? 'on' : ''} onClick={() => setSide('chat')}>
+              대화
+            </button>
+            <button className={side === 'summary' ? 'on' : ''} onClick={() => setSide('summary')}>
+              신고서 요약
+            </button>
+          </div>
+          <div style={{ display: side === 'chat' ? 'block' : 'none', height: 'calc(100% - 44px)' }}>
+            <ChatPanel filingId={filingId} txns={all} onOpen={(id) => setOpenId(id)} onChanged={refresh} />
+          </div>
+          {side === 'summary' && <SummaryPanel filingId={filingId} summary={summary.data} user={user} status={filing.data?.status} onChanged={refresh} />}
         </LayoutPanel>
       }
     />

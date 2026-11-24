@@ -10,6 +10,8 @@ export interface LlmConfig {
   model: string;
   timeoutMs: number;
   maxTokens: number;
+  /** 터널 뒤 로컬 LLM 보호용 토큰(Authorization: Bearer) */
+  apiKey?: string;
 }
 
 export const llmConfigFromEnv = (): LlmConfig => ({
@@ -17,7 +19,10 @@ export const llmConfigFromEnv = (): LlmConfig => ({
   model: process.env.LLM_MODEL ?? 'mlx-community/Qwen3.6-35B-A3B-4bit-DWQ',
   timeoutMs: Number(process.env.LLM_TIMEOUT_MS ?? 45_000),
   maxTokens: Number(process.env.LLM_MAX_TOKENS ?? 700),
+  apiKey: process.env.LLM_API_KEY || undefined,
 });
+
+const authHeader = (cfg: LlmConfig): Record<string, string> => (cfg.apiKey ? { authorization: `Bearer ${cfg.apiKey}` } : {});
 
 /** 추론 모델의 <think> 블록은 도구 호출 해석에서 뺀다. */
 export const stripThinking = (s: string) => s.replace(/<think>[\s\S]*?<\/think>/g, '').replace(/^[\s\S]*?<\/think>/, '').trim();
@@ -33,7 +38,7 @@ export function openAiChat(cfg: LlmConfig): ChatFn {
     try {
       const res = await fetch(`${cfg.baseUrl}/v1/chat/completions`, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', ...authHeader(cfg) },
         signal: ctrl.signal,
         body: JSON.stringify({
           model: cfg.model,
@@ -56,8 +61,8 @@ export async function llmHealthy(cfg: LlmConfig): Promise<boolean> {
   if (cfg.baseUrl === 'off') return false;
   try {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 1500);
-    const res = await fetch(`${cfg.baseUrl}/v1/models`, { signal: ctrl.signal });
+    const timer = setTimeout(() => ctrl.abort(), Number(process.env.LLM_HEALTH_TIMEOUT_MS ?? 1500));
+    const res = await fetch(`${cfg.baseUrl}/v1/models`, { signal: ctrl.signal, headers: authHeader(cfg) });
     clearTimeout(timer);
     return res.ok;
   } catch {
