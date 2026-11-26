@@ -30,6 +30,10 @@ type SR = {
   onerror: ((e: { error: string }) => void) | null;
 };
 
+/** 자주 쓰는 짧은 말은 음성을 미리 받아 두어 첫 소리를 앞당긴다 */
+const ttsCache = new Map<string, Blob>();
+const PRELOAD = ['확인해 볼게요.', '목록은 화면에 띄워 드렸어요.', '확정 카드를 만들었어요. 화면에서 확인하고 눌러 주세요.'];
+
 const median = (xs: number[]) => {
   if (!xs.length) return 0;
   const s = [...xs].sort((a, b) => a - b);
@@ -95,6 +99,16 @@ export function VoiceCall({
   const playToken = useRef(0);
   const active = useRef(false);
   const engineRef = useRef<'eleven' | 'device' | '?'>('?');
+  const lastSpoken = useRef<{ text: string; at: number }>({ text: '', at: 0 });
+  const lastSent = useRef<{ text: string; at: number }>({ text: '', at: 0 });
+
+  const safeStart = () => {
+    try {
+      sr.current?.start();
+    } catch {
+      /* 이미 듣는 중 */
+    }
+  };
 
   const stopPlayback = () => {
     playToken.current++;
@@ -115,13 +129,18 @@ export function VoiceCall({
   const playOne = async (text: string, token: number): Promise<void> => {
     if (token !== playToken.current) return;
     speakingText.current = text;
+    lastSpoken.current = { text: `${lastSpoken.current.text} ${text}`.slice(-400), at: Date.now() };
     try {
-      const res = await fetch('/api/tts', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text }) });
+      let blob = ttsCache.get(text);
+      if (!blob) {
+        const res = await fetch('/api/tts', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text }) });
+        if (res.status === 200) blob = await res.blob();
+      }
       if (token !== playToken.current) return;
-      if (res.status === 200) {
+      if (blob) {
         setEngine('eleven');
         engineRef.current = 'eleven';
-        const url = URL.createObjectURL(await res.blob());
+        const url = URL.createObjectURL(blob);
         if (token !== playToken.current) return URL.revokeObjectURL(url);
         await new Promise<void>((resolve) => {
           const a = audio.current ?? (audio.current = new Audio());
@@ -141,12 +160,16 @@ export function VoiceCall({
     if (token !== playToken.current) return;
     setEngine('device');
     engineRef.current = 'device';
+    // 기기 음성은 에코 제거가 안 돼 자기 목소리를 다시 받아쓰므로, 읽는 동안은 듣지 않는다
+    sr.current?.abort();
     await new Promise<void>((resolve) => {
       const u = new SpeechSynthesisUtterance(text);
       u.lang = 'ko-KR';
       u.rate = 1.1;
       u.onstart = () => markFirstSound();
-      u.onend = u.onerror = () => resolve();
+      u.onend = u.onerror = () => {
+        resolve();
+      };
       window.speechSynthesis.speak(u);
     });
   };
@@ -161,7 +184,9 @@ export function VoiceCall({
     }
     if (token === playToken.current) {
       speakingText.current = '';
+      lastSpoken.current.at = Date.now();
       setState(active.current ? 'listening' : 'idle');
+      if (active.current && engineRef.current === 'device') setTimeout(safeStart, 300); // 기기 음성이 끝나면 다시 듣기
     }
   };
 
@@ -197,6 +222,11 @@ export function VoiceCall({
       }
     };
     sock.onclose = () => active.current && setErr('연결이 끊겼어요. 다시 시작해 주세요.');
+    for (const p of PRELOAD)
+      if (!ttsCache.has(p))
+        void fetch('/api/tts', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: p }) })
+          .then(async (r) => r.status === 200 && ttsCache.set(p, await r.blob()))
+          .catch(() => {});
     ws.current = sock;
 
     const rec = new Ctor();
@@ -222,16 +252,24 @@ export function VoiceCall({
           }
         } else {
           setHeard('');
+          // 「요」 「음」처럼 너무 짧은 말 · 추임새는 질문으로 보내지 않는다
+          if (norm(t).length < 3 || /^(음+|어+|아+|네|예|요|응)$/.test(norm(t))) continue;
+          if (Date.now() - lastSpoken.current.at < 3000 && looksLikeEcho(t, lastSpoken.current.text)) continue; // 방금 읽은 말의 메아리
+          if (norm(t) === norm(lastSent.current.text) && Date.now() - lastSent.current.at < 5000) continue; // 같은 말 중복
+          lastSent.current = { text: t, at: Date.now() };
           stopPlayback();
           sendUtterance(t);
         }
       }
     };
     rec.onerror = (e) => e.error !== 'no-speech' && e.error !== 'aborted' && setErr(`음성 인식 오류: ${e.error}`);
-    rec.onend = () => active.current && rec.start(); // 통화처럼 계속 듣기
+    // 통화처럼 계속 듣기 — 단, 기기 음성으로 읽는 중이면 끝난 뒤 다시 켠다
+    rec.onend = () => {
+      if (active.current && !(engineRef.current === 'device' && speakingText.current)) safeStart();
+    };
     sr.current = rec;
     active.current = true;
-    rec.start();
+    safeStart();
     setOn(true);
     setState('listening');
   };

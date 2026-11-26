@@ -28,8 +28,14 @@ export class ChatService {
     const g = guard(message, [...new Set(txns.map((t) => t.counterparty))]);
     if (!g.ok) return { route: g.route, reply: g.reply, suggestions: EXAMPLES.slice(0, 3) };
 
+    // 빠른 경로: 규칙으로 답할 수 있는 질문(요약 · 목록 · 조문 · 확정 카드)은 즉시, 숫자는 코드가 센다
+    // 자율 루프는 규칙이 못 잡는 질문에만 쓴다(정확하지만 느리고, 집계를 틀릴 수 있어서)
     const ruled = route(message, txns, client);
-    if (ruled?.route === 'intro') return ruled;
+    // 조건이 여러 개 붙은 질문(「~중에 · 만 · 이유 · 가장 · 비교」)이나 규칙 조회가 0건이면 자율 루프에 맡긴다
+    const complex = /중에|중\s|만\s|이유|왜|비교|가장|제일|큰\s*거|작은\s*거|순서|정리해|분석/.test(message);
+    const emptySearch = ruled?.route === 'search' && !ruled.rows?.length;
+    if (ruled && (ruled.route !== 'search' || (!complex && !emptySearch))) return ruled;
+    if (ruled && !(await this.agent.available())) return ruled;
 
     if (mode === 'auto' && (await this.agent.available())) {
       const looped = await this.loop(filingId, client, message, signal);
