@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { gql, subscribeFiling, type Txn } from './api';
 import { num } from './format';
+import { VoiceCall, type VoiceReply } from './VoiceCall';
 
 /**
  * 업무 대화 패널(오른쪽). 자율 루프가 켜져 있으면 AI가 정의된 조회 도구만 골라 여러 단계로 조사한다.
@@ -203,6 +204,12 @@ export function ChatPanel({ filingId, txns, onOpen, onChanged }: { filingId: num
         )}
         <div ref={endRef} />
       </div>
+      <VoiceCall
+        filingId={filingId}
+        auto={auto}
+        onUser={(text) => setMsgs((x) => [...x, { role: 'user', text: `🎙 ${text}` }])}
+        onReply={(r: VoiceReply, ms) => setMsgs((x) => [...x, { role: 'assistant', r: r as Reply, ms }])}
+      />
       <form
         className="wb-chat-input"
         onSubmit={(e) => {

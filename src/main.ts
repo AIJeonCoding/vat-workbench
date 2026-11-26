@@ -3,6 +3,10 @@ import { EntityManager, MikroORM } from '@mikro-orm/postgresql';
 import { createApp } from './app.setup';
 import { seedDemo } from './seed/seed';
 
+// 로컬 비밀값(.env, 저장소에 안 올라감). Node 20.12+ 내장 기능
+import { existsSync } from 'node:fs';
+if (existsSync('.env')) process.loadEnvFile('.env');
+
 async function bootstrap() {
   const app = await createApp({ serveWeb: true });
   const orm = app.get(MikroORM);

@@ -22,7 +22,7 @@ export class ChatService {
     private readonly events: EventBus,
   ) {}
 
-  async answer(filingId: number, message: string, mode: 'auto' | 'quick' = 'auto'): Promise<ChatReply> {
+  async answer(filingId: number, message: string, mode: 'auto' | 'quick' = 'auto', signal?: AbortSignal): Promise<ChatReply> {
     const { client } = await this.review.filing(filingId);
     const txns = await this.review.txns(filingId);
     const g = guard(message, [...new Set(txns.map((t) => t.counterparty))]);
@@ -32,7 +32,8 @@ export class ChatService {
     if (ruled?.route === 'intro') return ruled;
 
     if (mode === 'auto' && (await this.agent.available())) {
-      const looped = await this.loop(filingId, client, message);
+      const looped = await this.loop(filingId, client, message, signal);
+      if (signal?.aborted) return { route: 'loop', reply: '' };
       if (looped) return looped;
     }
     if (ruled) return ruled;
@@ -46,7 +47,7 @@ export class ChatService {
     };
   }
 
-  private async loop(filingId: number, client: Parameters<typeof buildChatTools>[1]['client'], message: string): Promise<ChatReply | null> {
+  private async loop(filingId: number, client: Parameters<typeof buildChatTools>[1]['client'], message: string, signal?: AbortSignal): Promise<ChatReply | null> {
     const em = this.em.fork();
     const { tools, buildCard } = buildChatTools(em, { filingId, client });
     try {
@@ -58,6 +59,7 @@ export class ChatService {
         completion: { name: 'answer', schema: answerSchema },
         maxTurns: 8,
         wrapUpAt: 2,
+        signal,
         onStep: (s) => this.events.emit({ type: 'agentStep', filingId, txnId: 0, tool: s.tool, summary: s.summary }),
       });
       if (!r.result) {

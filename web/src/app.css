@@ -372,3 +372,14 @@ body {
   .wb-chip, .wb-chat-row, .wb-card-action { background: #111827; border-color: #374151; color: inherit; }
   .wb-chat-input textarea { background: #111827; color: inherit; border-color: #374151; }
 }
+
+/* ── 음성 대화 ─────────────────────────────── */
+.wb-voice { margin-top: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.wb-btn-danger { background: #dc2626; }
+.wb-voice-state { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
+.wb-voice-metrics { width: 100%; font-size: 12px; }
+.wb-dot { width: 8px; height: 8px; border-radius: 50%; background: #9ca3af; display: inline-block; }
+.wb-dot-listening { background: #16a34a; animation: wb-pulse 1.2s infinite; }
+.wb-dot-thinking { background: #f59e0b; }
+.wb-dot-speaking { background: #2563eb; animation: wb-pulse 0.8s infinite; }
+@keyframes wb-pulse { 50% { opacity: 0.3; } }

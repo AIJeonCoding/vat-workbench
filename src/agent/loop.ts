@@ -44,6 +44,8 @@ export async function runLoop<T>(opts: {
   onStep?: (s: LoopStep) => void;
   /** 남은 턴이 이 수 이하가 되면 도구 결과 뒤에 '이제 결론을 내라'를 붙인다 */
   wrapUpAt?: number;
+  /** 사용자가 끼어들면(취소) 다음 턴을 시작하지 않는다 */
+  signal?: AbortSignal;
 }): Promise<LoopResult<T>> {
   const messages: ChatMessage[] = [
     { role: 'system', content: opts.system },
@@ -53,7 +55,9 @@ export async function runLoop<T>(opts: {
   const names = [...opts.tools.map((t) => t.name), opts.completion.name];
 
   for (let turn = 1; turn <= opts.maxTurns; turn++) {
+    if (opts.signal?.aborted) return { steps, turns: turn - 1, error: 'cancelled' };
     const reply = await opts.chat(messages);
+    if (opts.signal?.aborted) return { steps, turns: turn, error: 'cancelled' };
     messages.push({ role: 'assistant', content: reply });
     const call = parseToolCall(reply, names);
 

@@ -1,11 +1,13 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import fastifyStatic from '@fastify/static';
+import fastifyWebsocket from '@fastify/websocket';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from './app.module';
 import type { ChatFn } from './agent/llm';
 import { registerGraphql } from './api/graphql';
+import { registerVoice } from './voice/voice';
 
 /** 서버와 테스트가 같은 설정으로 앱을 만든다. */
 export async function createApp(opts: { serveWeb?: boolean; chat?: ChatFn } = {}): Promise<NestFastifyApplication> {
@@ -16,7 +18,10 @@ export async function createApp(opts: { serveWeb?: boolean; chat?: ChatFn } = {}
   // 업로드 파일은 원본 바이트 그대로 받는다
   fastify.addContentTypeParser('application/octet-stream', { parseAs: 'buffer' }, (_req, body, done) => done(null, body));
 
+  // GraphQL 구독과 음성 대화가 같은 WebSocket 플러그인을 쓰도록 루트에 먼저 등록
+  await fastify.register(fastifyWebsocket, { options: { maxPayload: 1048576 } });
   await registerGraphql(app);
+  await registerVoice(app);
 
   const webDist = join(__dirname, '..', 'web', 'dist');
   if (opts.serveWeb && existsSync(webDist)) {
