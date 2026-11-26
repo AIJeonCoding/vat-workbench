@@ -2,6 +2,7 @@ import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Logger } from '@nestjs/common';
 import { z } from 'zod';
 import { AgentQueue } from '../agent/agent.queue';
+import { researchPosting } from './research';
 
 /**
  * 면접 연습 — AI 면접관이 질문하고, 답을 보고 꼬리질문을 한 번 하고, 끝나면 피드백을 준다.
@@ -74,6 +75,7 @@ const inMsg = z.discriminatedUnion('t', [
     jd: z.string().max(4000).default(''),
     resume: z.string().max(4000).default(''),
     n: z.number().int().min(2).max(7).default(4),
+    postingUrl: z.string().max(500).optional(),
   }),
   z.object({ t: z.literal('answer'), text: z.string().min(1).max(3000), durationMs: z.number().int().min(0).max(600_000) }),
   z.object({ t: z.literal('skip') }),
@@ -106,10 +108,10 @@ export async function registerInterview(app: NestFastifyApplication) {
   fastify.get('/ws/interview', { websocket: true }, (conn: unknown) => {
     const ws = ((conn as { socket?: WsLike }).socket ?? conn) as WsLike;
     const send = (m: object) => ws.readyState === 1 && ws.send(JSON.stringify(m));
-    let s: { role: Role; company: string; jd: string; resume: string; plan: string[]; idx: number; turns: Turn[]; followed: boolean } | null = null;
+    let s: { role: Role; company: string; jd: string; resume: string; values: string; plan: string[]; idx: number; turns: Turn[]; followed: boolean } | null = null;
 
     const roleName = (r: Role) => ({ general: '일반', backend: '백엔드 개발자', ai_agent: 'AI 에이전트 엔지니어', fde: 'Forward Deployed Engineer' })[r];
-    const ctx = () => (s ? `[공고]\n${s.jd || '(없음)'}\n\n[이력서]\n${s.resume || '(없음)'}` : '');
+    const ctx = () => (s ? `[공고]\n${s.jd || '(없음)'}\n\n[인재상]\n${s.values || '(없음)'}\n\n[이력서]\n${s.resume || '(없음)'}` : '');
 
     const ask = (q: string, kind: Turn['kind']) => {
       s!.turns.push({ q, kind });
@@ -131,7 +133,7 @@ export async function registerInterview(app: NestFastifyApplication) {
       let overall: string | null = null;
       if (answered.length) {
         overall = await agent.ask(
-          `${ctx()}\n\n[면접 기록]\n${answered.map((t, i) => `Q${i + 1}. ${t.q}\nA. ${t.a}`).join('\n\n')}\n\n위 답변 전체를 면접관 입장에서 평가하세요. 형식:\n잘한 점: (2가지, 각 한 줄)\n고칠 점: (3가지, 각 한 줄, 어떤 답의 어떤 부분인지)\n다시 말하면 좋은 한 문장: (가장 약했던 답을 고친 예시 한 문장)`,
+          `${ctx()}\n\n[면접 기록]\n${answered.map((t, i) => `Q${i + 1}. ${t.q}\nA. ${t.a}`).join('\n\n')}\n\n위 답변 전체를 면접관 입장에서 평가하세요. 형식:\n잘한 점: (2가지, 각 한 줄)\n고칠 점: (3가지, 각 한 줄, 어떤 답의 어떤 부분인지)\n인재상 연결: (인재상이 있으면 어느 답이 어떤 가치와 맞고 무엇이 부족한지 한두 줄, 없으면 생략)\n모범 답안 예시: (가장 약했던 답을 결론 → 상황 → 내가 한 일 → 결과 순서로 다시 쓴 3~4문장. 지원자가 말한 사실 · 숫자만 쓰고 새 숫자나 경험을 지어내지 않음. 빈 곳은 [직접 채우기]로 표시)`,
           SYS(s.company, roleName(s.role)),
         );
       }
@@ -149,23 +151,36 @@ export async function registerInterview(app: NestFastifyApplication) {
         if (msg.t === 'start') {
           const jd = INJECTION.test(msg.jd) ? '' : msg.jd;
           const resume = INJECTION.test(msg.resume) ? '' : msg.resume;
-          s = { role: msg.role, company: msg.company, jd, resume, plan: [], idx: -1, turns: [], followed: false };
+          s = { role: msg.role, company: msg.company, jd, resume, values: '', plan: [], idx: -1, turns: [], followed: false };
+          if (msg.postingUrl) {
+            send({ t: 'thinking', text: '공고와 인재상을 찾아볼게요.' });
+            try {
+              const brief = await researchPosting(msg.postingUrl, (await agent.available()) ? agent.chatFn : null, (step) => send({ t: 'step', text: step }));
+              s.company = s.company || brief.company;
+              s.jd = [brief.role && `직무: ${brief.role}`, brief.duties && `담당 업무:\n${brief.duties}`, brief.requirements && `자격 요건:\n${brief.requirements}`, brief.preferred && `우대:\n${brief.preferred}`, jd].filter(Boolean).join('\n\n').slice(0, 5000);
+              s.values = brief.values && brief.values !== '없음' ? brief.values : '';
+              send({ t: 'brief', brief });
+            } catch (e) {
+              send({ t: 'step', text: `공고를 읽지 못했어요: ${(e as Error).message} 공고 내용을 붙여 넣어 주세요.` });
+            }
+          }
           let plan: string[] = [];
-          if (jd || resume) {
-            send({ t: 'thinking', text: '공고와 이력서를 보고 질문을 준비할게요.' });
+          if (s.jd || resume) {
+            send({ t: 'thinking', text: '질문을 준비할게요.' });
             const out = await agent.ask(
-              `${ctx()}\n\n이 지원자에게 할 면접 질문 ${msg.n - 1}개를 만드세요. 공고 요건과 이력서의 구체적인 경험을 연결해서, 실제 면접관이 물을 법한 질문으로. 한 줄에 질문 하나, 번호 없이, 질문만 쓰세요.`,
+              `${ctx()}\n\n이 지원자에게 할 면접 질문 ${msg.n - 1}개를 만드세요. 공고 요건과 이력서의 구체적인 경험을 연결해서, 실제 면접관이 물을 법한 질문으로. 인재상이 있으면 그중 하나를 행동 사례로 확인하는 질문을 1개 넣으세요. 한 줄에 질문 하나, 번호 없이, 질문만 쓰세요.`,
               SYS(msg.company, roleName(msg.role)),
             );
             plan = (out ?? '')
               .split('\n')
               .map((l) => l.replace(/^\s*[\d\-.)·•]+\s*/, '').trim())
-              .filter((l) => l.length > 8 && l.length < 200 && /[?요까]$/.test(l))
+              .map((l) => l.replace(/^\*+|\*+$/g, '').replace(/^질문\s*\d*\s*[:.]\s*/, '').trim())
+              .filter((l) => l.length > 8 && l.length < 220 && /[?요까다]\s*$/.test(l))
               .slice(0, msg.n - 1);
           }
           if (plan.length < msg.n - 1) plan = [...plan, ...BANK[msg.role].slice(1)].slice(0, msg.n - 1);
           s.plan = [BANK[msg.role][0], ...plan];
-          send({ t: 'ready', total: s.plan.length, ai: plan.length > 0 && !!(jd || resume) });
+          send({ t: 'ready', total: s.plan.length, ai: plan.length > 0 && !!(s.jd || resume) });
           return nextMain();
         }
         if (!s) return send({ t: 'error', text: '먼저 시작해 주세요.' });

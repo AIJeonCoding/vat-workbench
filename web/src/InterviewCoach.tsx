@@ -15,6 +15,16 @@ interface Metrics {
   hints: string[];
 }
 type Line = { who: 'q'; text: string; kind: string; no?: number; total?: number } | { who: 'a'; text: string; m?: Metrics } | { who: 'sys'; text: string };
+interface Brief {
+  company: string;
+  role: string;
+  duties: string;
+  requirements: string;
+  preferred: string;
+  values: string;
+  sources: string[];
+  ai: boolean;
+}
 interface Feedback {
   overall: string | null;
   turns: { q: string; kind: string; a: string; m: Metrics }[];
@@ -31,6 +41,8 @@ const SILENCE_MS = 4000;
 export function InterviewCoach() {
   const [role, setRole] = useState<Role>('backend');
   const [company, setCompany] = useState('');
+  const [postingUrl, setPostingUrl] = useState('');
+  const [brief, setBrief] = useState<Brief | null>(null);
   const [jd, setJd] = useState('');
   const [resume, setResume] = useState('');
   const [n, setN] = useState(4);
@@ -94,9 +106,10 @@ export function InterviewCoach() {
     setLines([]);
     setFeedback(null);
     setAiQs(null);
+    setBrief(null);
     const ok = await voice.start();
     const sock = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/interview`);
-    sock.onopen = () => sock.send(JSON.stringify({ t: 'start', role, company, jd, resume, n }));
+    sock.onopen = () => sock.send(JSON.stringify({ t: 'start', role, company, jd, resume, n, postingUrl: postingUrl.trim() || undefined }));
     sock.onmessage = (e) => {
       const m = JSON.parse(e.data as string);
       if (m.t === 'thinking') {
@@ -105,6 +118,8 @@ export function InterviewCoach() {
         void voice.speak([m.text]);
       }
       if (m.t === 'ready') setAiQs(m.ai);
+      if (m.t === 'step') setLines((x) => [...x, { who: 'sys', text: `🔎 ${m.text}` }]);
+      if (m.t === 'brief') setBrief(m.brief);
       if (m.t === 'q') {
         setLines((x) => [...x, { who: 'q', text: m.text, kind: m.kind, no: m.no, total: m.total }]);
         setPhase('asking');
@@ -160,7 +175,11 @@ export function InterviewCoach() {
             <input className="wb-input" value={company} maxLength={60} onChange={(e) => setCompany(e.target.value)} placeholder="예: ○○회사" />
           </label>
           <label>
-            공고 내용(선택 · 붙여 넣으면 공고에 맞춘 질문)
+            채용 공고 링크(선택 · AI가 공고와 인재상을 찾아 질문에 반영)
+            <input className="wb-input" value={postingUrl} maxLength={500} onChange={(e) => setPostingUrl(e.target.value)} placeholder="예: https://toss.im/career/job-detail?job_id=..." />
+          </label>
+          <label>
+            공고 내용(선택 · 링크가 안 읽히는 사이트면 붙여 넣기)
             <textarea className="wb-input" rows={5} maxLength={4000} value={jd} onChange={(e) => setJd(e.target.value)} placeholder="담당 업무 · 자격 요건 · 우대 사항" />
           </label>
           <label>
@@ -223,6 +242,36 @@ export function InterviewCoach() {
           </div>
 
           <div className="wb-iv-body">
+            {brief && (
+              <details className="wb-iv-brief" open>
+                <summary>
+                  🔎 찾아온 공고 · 인재상{brief.company ? ` — ${brief.company}` : ''}
+                  {brief.role ? ` · ${brief.role}` : ''} {brief.ai ? '' : '(AI 요약 없이 본문 일부)'}
+                </summary>
+                {brief.values && brief.values !== '없음' ? (
+                  <div>
+                    <b>인재상 · 핵심가치</b>
+                    <div className="wb-msg-text">{brief.values}</div>
+                  </div>
+                ) : (
+                  <div className="wb-sub">인재상 페이지를 찾지 못했어요(자바스크립트로만 그려지는 페이지일 수 있어요).</div>
+                )}
+                {brief.requirements && (
+                  <div>
+                    <b>자격 요건</b>
+                    <div className="wb-msg-text">{brief.requirements}</div>
+                  </div>
+                )}
+                <div className="wb-sub">
+                  출처:{' '}
+                  {brief.sources.map((u) => (
+                    <a key={u} href={u} target="_blank" rel="noreferrer">
+                      {u.replace(/^https:\/\//, '').slice(0, 50)}{' '}
+                    </a>
+                  ))}
+                </div>
+              </details>
+            )}
             {lines.map((l, i) =>
               l.who === 'q' ? (
                 <div key={i} className="wb-msg wb-msg-ai">
