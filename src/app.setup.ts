@@ -8,6 +8,7 @@ import { AppModule } from './app.module';
 import type { ChatFn } from './agent/llm';
 import { registerGraphql } from './api/graphql';
 import { registerVoice } from './voice/voice';
+import { registerInterview } from './interview/interview';
 
 /** 서버와 테스트가 같은 설정으로 앱을 만든다. */
 export async function createApp(opts: { serveWeb?: boolean; chat?: ChatFn } = {}): Promise<NestFastifyApplication> {
@@ -22,6 +23,7 @@ export async function createApp(opts: { serveWeb?: boolean; chat?: ChatFn } = {}
   await fastify.register(fastifyWebsocket, { options: { maxPayload: 1048576 } });
   await registerGraphql(app);
   await registerVoice(app);
+  await registerInterview(app);
 
   const webDist = join(__dirname, '..', 'web', 'dist');
   if (opts.serveWeb && existsSync(webDist)) {

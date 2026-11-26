@@ -71,7 +71,7 @@ export function guard(message: string, counterparties: string[]): GuardResult {
   if (m.length > 300) return { ok: false, route: 'blocked', reply: '질문은 300자 안으로 짧게 써 주세요.' };
   if (INJECTION.some((r) => r.test(m))) return { ok: false, route: 'blocked', reply: '그 요청은 처리할 수 없습니다. 이 대화는 부가세 신고 자료 정리에만 쓰입니다.' };
   if (DOMAIN.test(m) || counterparties.some((c) => c.length >= 2 && m.includes(c.slice(0, Math.min(4, c.length))))) return { ok: true };
-  if (/도움|뭐\s*(할|해)|무엇을|사용법|안녕|기능/.test(m)) return { ok: true };
+  if (/도움|뭐\s*(할|해)|뭘\s*(할|해)|할\s*수\s*있|무엇을|사용법|안녕|기능/.test(m)) return { ok: true };
   return {
     ok: false,
     route: 'off_topic',
@@ -120,7 +120,7 @@ export function route(message: string, txns: Txn[], client?: Pick<Client, 'name'
   const m = message.trim();
   const live = txns.filter((t) => t.status !== 'MATCHED');
 
-  if (/도움|뭐\s*(할|해)|무엇을|사용법|안녕|기능/.test(m) && m.length < 30) return { route: 'intro', reply: INTRO, suggestions: EXAMPLES };
+  if (/도움|뭐\s*(할|해)|뭘\s*(할|해)|할\s*수\s*있|무엇을|사용법|안녕|기능/.test(m) && m.length < 30) return { route: 'intro', reply: INTRO, suggestions: EXAMPLES };
 
   // 확정 요청 → 카드만 만든다
   if (/확정\s*(해|하|시켜|처리)|승인\s*(해|하)/.test(m)) {

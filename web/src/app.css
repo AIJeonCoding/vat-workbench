@@ -383,3 +383,24 @@ body {
 .wb-dot-thinking { background: #f59e0b; }
 .wb-dot-speaking { background: #2563eb; animation: wb-pulse 0.8s infinite; }
 @keyframes wb-pulse { 50% { opacity: 0.3; } }
+
+/* ── 면접 연습 ─────────────────────────────── */
+.wb-iv { max-width: 860px; margin: 0 auto; padding: 24px 16px; height: 100%; box-sizing: border-box; }
+.wb-iv-setup { display: flex; flex-direction: column; gap: 12px; }
+.wb-iv-setup h2 { margin: 0; }
+.wb-iv-setup label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; }
+.wb-input { border: 1px solid #d1d5db; border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 14px; font-weight: 400; }
+.wb-iv-run { display: flex; flex-direction: column; height: calc(100vh - 120px); }
+.wb-iv-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-bottom: 10px; border-bottom: 1px solid #e5e7eb; }
+.wb-iv-body { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 12px 0; }
+.wb-iv-m { font-size: 11px; opacity: 0.85; margin-top: 4px; }
+.wb-iv-sys { text-align: center; font-size: 12px; }
+.wb-iv-live { opacity: 0.6; }
+.wb-iv-fb { border: 1px solid #93c5fd; border-radius: 10px; padding: 12px 14px; background: #fff; }
+.wb-iv-fb h3 { margin: 0 0 8px; }
+.wb-iv-fbq { border-top: 1px solid #e5e7eb; padding-top: 8px; margin-top: 8px; font-size: 13px; }
+.wb-iv-fbq ul { margin: 4px 0 0 18px; padding: 0; }
+@media (prefers-color-scheme: dark) {
+  .wb-input { background: #111827; color: inherit; border-color: #374151; }
+  .wb-iv-fb { background: #111827; border-color: #1e3a8a; }
+}

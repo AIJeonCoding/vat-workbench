@@ -10,10 +10,12 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { gql, setCurrentUser, USERS, type FilingCard, type User } from './api';
 import { FilingWorkspace } from './FilingWorkspace';
+import { InterviewCoach } from './InterviewCoach';
 
 export function App() {
   const [user, setUser] = useState<User>(USERS[0]);
   const [filingId, setFilingId] = useState<number | null>(null);
+  const [mode, setMode] = useState<'vat' | 'interview'>(() => (location.hash === '#interview' ? 'interview' : 'vat'));
 
   const filings = useQuery({
     queryKey: ['filings'],
@@ -40,9 +42,21 @@ export function App() {
       variant="section"
       topNav={
         <TopNav
-          heading={<TopNavHeading heading="부가세 신고 워크벤치" superheading="세무사 사무실" />}
+          heading={<TopNavHeading heading={mode === 'vat' ? '부가세 신고 워크벤치' : '면접 연습'} superheading={mode === 'vat' ? '세무사 사무실' : 'AI 면접관 · 음성'} />}
           endContent={
             <HStack gap={4} vAlign="center">
+              <SegmentedControl
+                label="모드"
+                size="sm"
+                value={mode}
+                onChange={(v) => {
+                  setMode(v as 'vat' | 'interview');
+                  history.replaceState(null, '', v === 'interview' ? '#interview' : '#');
+                }}
+              >
+                <SegmentedControlItem value="vat" label="부가세 신고" />
+                <SegmentedControlItem value="interview" label="면접 연습" />
+              </SegmentedControl>
               <span className="wb-sub" title={llmUp ? `로컬 LLM: ${health.data?.llm.model}` : 'AI 서버가 꺼져 있어도 규칙 판정과 사람 검토로 진행됩니다'}>
                 {llmUp ? `AI 서버 연결됨 (${modelShort})` : 'AI 서버 꺼짐'}
                 {agent.data?.pending ? ` · 대기 ${agent.data.pending}건` : ''}
@@ -66,6 +80,9 @@ export function App() {
         />
       }
     >
+      {mode === 'interview' ? (
+        <InterviewCoach />
+      ) : (
       <Layout
         start={
           <LayoutPanel width={260} hasDivider padding={2} label="고객 신고 건">
@@ -104,6 +121,7 @@ export function App() {
           )
         }
       />
+      )}
     </AppShell>
   );
 }
