@@ -46,6 +46,7 @@ export function InterviewCoach() {
   const [jd, setJd] = useState('');
   const [resume, setResume] = useState('');
   const [n, setN] = useState(4);
+  const [useMic, setUseMic] = useState(true);
   const [running, setRunning] = useState(false);
   const [phase, setPhase] = useState<'idle' | 'preparing' | 'asking' | 'answering' | 'thinking' | 'done'>('idle');
   const [lines, setLines] = useState<Line[]>([]);
@@ -62,7 +63,9 @@ export function InterviewCoach() {
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
   const endRef = useRef<HTMLDivElement>(null);
-  useEffect(() => endRef.current?.scrollIntoView({ block: 'end' }), [lines, feedback]);
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ block: "end" });
+  }, [lines, feedback]);
 
   const submit = (textOverride?: string) => {
     if (timer.current) clearTimeout(timer.current);
@@ -107,7 +110,7 @@ export function InterviewCoach() {
     setFeedback(null);
     setAiQs(null);
     setBrief(null);
-    const ok = await voice.start();
+    const ok = useMic ? await voice.start() : false;
     const sock = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/interview`);
     sock.onopen = () => sock.send(JSON.stringify({ t: 'start', role, company, jd, resume, n, postingUrl: postingUrl.trim() || undefined }));
     sock.onmessage = (e) => {
@@ -142,7 +145,7 @@ export function InterviewCoach() {
     ws.current = sock;
     setRunning(true);
     setPhase('preparing');
-    if (!ok) setLines((x) => [...x, { who: 'sys', text: '마이크 없이 진행해요. 아래 입력창에 답을 써 주세요.' }]);
+    if (!ok) setLines((x) => [...x, { who: 'sys', text: useMic ? '마이크를 쓸 수 없어 글로 진행해요. 아래 입력창에 답을 써 주세요.' : '글로만 답하는 모드예요. 질문은 소리로 읽어 드려요.' }]);
   };
 
   const stopAll = () => {
@@ -195,6 +198,9 @@ export function InterviewCoach() {
                 </option>
               ))}
             </select>
+          </label>
+          <label className="wb-iv-check">
+            <input type="checkbox" checked={useMic} onChange={(e) => setUseMic(e.target.checked)} /> 말로 답하기(마이크 사용) — 끄면 질문만 소리로 듣고 글로 답해요
           </label>
           <button className="wb-btn" onClick={() => void start()}>
             🎙 면접 시작
