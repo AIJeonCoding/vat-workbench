@@ -171,11 +171,12 @@ export async function registerInterview(app: NestFastifyApplication) {
               `${ctx()}\n\n이 지원자에게 할 면접 질문 ${msg.n - 1}개를 만드세요. 공고 요건과 이력서의 구체적인 경험을 연결해서, 실제 면접관이 물을 법한 질문으로. 인재상이 있으면 그중 하나를 행동 사례로 확인하는 질문을 1개 넣으세요. 한 줄에 질문 하나, 번호 없이, 질문만 쓰세요.`,
               SYS(msg.company, roleName(msg.role)),
             );
+            if (process.env.IV_DEBUG) log.warn(`plan raw: ${JSON.stringify(out)}`);
             plan = (out ?? '')
               .split('\n')
               .map((l) => l.replace(/^\s*[\d\-.)·•]+\s*/, '').trim())
               .map((l) => l.replace(/^\*+|\*+$/g, '').replace(/^질문\s*\d*\s*[:.]\s*/, '').trim())
-              .filter((l) => l.length > 8 && l.length < 220 && /[?요까다]\s*$/.test(l))
+              .filter((l) => l.length > 8 && l.length < 220 && /[?요까다][.?]?\s*$/.test(l))
               .slice(0, msg.n - 1);
           }
           if (plan.length < msg.n - 1) plan = [...plan, ...BANK[msg.role].slice(1)].slice(0, msg.n - 1);
