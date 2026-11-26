@@ -90,13 +90,19 @@ export async function registerVoice(app: NestFastifyApplication) {
     if (ttsDay !== today) (ttsDay = today), (ttsUsed = 0);
     if (ttsUsed + body.data.text.length > TTS_DAILY_CHARS) return reply.code(204).send(); // 오늘 한도 → 기기 음성으로
     ttsUsed += body.data.text.length;
+    const model = process.env.ELEVENLABS_MODEL ?? 'eleven_multilingual_v2';
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 10_000);
     try {
-      const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voice)}/stream?output_format=mp3_22050_32&optimize_streaming_latency=3`, {
+      const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voice)}/stream?output_format=mp3_44100_128&optimize_streaming_latency=3`, {
         method: 'POST',
         headers: { 'xi-api-key': key, 'content-type': 'application/json', accept: 'audio/mpeg' },
-        body: JSON.stringify({ text: body.data.text, model_id: process.env.ELEVENLABS_MODEL ?? 'eleven_flash_v2_5', language_code: 'ko' }),
+        body: JSON.stringify({
+          text: body.data.text,
+          model_id: model,
+          ...(/flash|turbo/.test(model) ? { language_code: 'ko' } : {}),
+          voice_settings: { stability: 0.6, similarity_boost: 0.8, style: 0, use_speaker_boost: true },
+        }),
         signal: ctrl.signal,
       });
       if (!res.ok || !res.body) {
